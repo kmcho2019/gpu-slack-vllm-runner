@@ -10,11 +10,13 @@ Use this for opportunistic synthetic token generation during GPU slack time.
 
 Default behavior is conservative:
 
-- A GPU is eligible only when it has no foreign compute process and enough free memory.
-- One filler job is launched per idle GPU.
-- Each filler job runs for a bounded time budget, default 50 minutes.
-- The hourly systemd timer runs one scheduling pass every hour.
-- A daemon mode is also provided for more frequent preemption checks.
+- A GPU is eligible only when it has no foreign compute process.
+- GPU utilization must be below `idle_policy.gpu_utilization_below_pct`, default 10%.
+- The GPU must have at least `idle_policy.min_free_memory_mib` free, default 8000 MiB.
+- One bounded vLLM job is launched per idle GPU by default.
+- The default model is `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4`.
+- Generated JSONL is stored under `data/output/generations/`.
+- The systemd timer runs one scheduling pass every 30 minutes.
 
 ## Repository layout
 
@@ -30,7 +32,7 @@ Default behavior is conservative:
 ├── logs/                             # stdout/stderr logs per filler job
 ├── scripts/
 │   ├── bootstrap.sh                  # uv environment setup
-│   ├── install_systemd_user.sh        # install hourly user timer
+│   ├── install_systemd_user.sh        # install 30-minute user timer
 │   └── uninstall_systemd_user.sh
 ├── src/gpu_slack_runner/
 │   ├── cli.py                        # gpu-slack CLI
@@ -77,21 +79,30 @@ uv run --no-sync gpu-slack --config configs/default.yaml status
 uv run --no-sync gpu-slack --config configs/default.yaml check --dry-run
 ```
 
-### 5. Run one real scheduling pass
+### 5. Run persistently in tmux
+
+```bash
+tmux new -s gpu-slack
+uv run --no-sync gpu-slack --config configs/default.yaml daemon --poll-interval-seconds 1800
+```
+
+Detach with `Ctrl-b d`. Reattach with `tmux attach -t gpu-slack`.
+
+### 6. Run one real scheduling pass
 
 ```bash
 uv run --no-sync gpu-slack --config configs/default.yaml check
 ```
 
-### 6. Stop all managed filler jobs
+### 7. Stop all managed filler jobs
 
 ```bash
 uv run --no-sync gpu-slack --config configs/default.yaml stop
 ```
 
-## Install hourly systemd timer
+## Install 30-minute systemd timer
 
-The default timer runs one check every hour.
+The default timer runs one check every 30 minutes.
 
 ```bash
 ./scripts/install_systemd_user.sh configs/default.yaml
@@ -120,13 +131,13 @@ Ask your administrator before enabling this on shared systems.
 
 ## Optional daemon mode
 
-The hourly timer matches the original requirement, but it only observes conflicts once per hour. For more polite preemption, run daemon mode with a 5-minute interval:
+The timer is usually enough for opportunistic token generation. For a visible persistent process during bring-up, run daemon mode in tmux with the same 30-minute cadence:
 
 ```bash
-uv run --no-sync gpu-slack --config configs/default.yaml daemon --poll-interval-seconds 300
+uv run --no-sync gpu-slack --config configs/default.yaml daemon --poll-interval-seconds 1800
 ```
 
-You can create a separate long-running systemd service for daemon mode if your lab prefers faster preemption.
+Use `tmux attach -t gpu-slack` to inspect it later, or install the user systemd timer once the dry-run output looks right.
 
 ## Config guide
 
@@ -148,7 +159,7 @@ job:
     - --no-sync
     - gpu-slack-vllm-generate
     - --model
-    - Qwen/Qwen2.5-1.5B-Instruct
+    - nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4
     - --time-budget-min
     - "50"
     - --tensor-parallel-size
@@ -167,6 +178,12 @@ Placeholders available in `job.command` and `job.environment`:
 - `{state_dir}`: state directory
 - `{config_path}`: config path
 
+## Prompt inputs
+
+`data/input/prompts.jsonl` is the default prompt source. Each line is a JSON object with a required `prompt` string. Extra fields such as `source`, `id`, and `categories` are allowed and ignored by the generator.
+
+The checked-in prompt file contains CUDA, Triton, FlashAttention, BLAS, and EDA GPU-kernel prompts, plus converted CVDP SystemVerilog RTL code-generation tasks.
+
 ## Output format
 
 Each vLLM filler job writes a JSONL file under `data/output/generations/`.
@@ -184,9 +201,9 @@ Example records:
 1. Start with `check --dry-run` for several hours before allowing real jobs.
 2. Keep `require_no_foreign_compute_process: true` unless the server users explicitly agree to co-scheduling.
 3. Set `--gpu-memory-utilization` below 0.9 so vLLM does not reserve all memory.
-4. Use bounded jobs, for example 50 minutes, so the hourly timer never accumulates stale jobs.
+4. Use bounded jobs, for example 50 minutes, so repeated checks never accumulate stale jobs.
 5. For shared systems, document that these are low-priority filler jobs and can be killed at any time.
-6. Consider running the daemon mode every 5 minutes if normal user jobs must preempt filler jobs quickly.
+6. Use daemon mode in tmux during bring-up; use the systemd timer once the dry-run output is boring.
 
 ## Common commands
 
@@ -204,7 +221,7 @@ uv run --no-sync gpu-slack --config configs/default.yaml check
 uv run --no-sync gpu-slack --config configs/default.yaml stop
 
 # Run more frequent checks
-uv run --no-sync gpu-slack --config configs/default.yaml daemon --poll-interval-seconds 300
+uv run --no-sync gpu-slack --config configs/default.yaml daemon --poll-interval-seconds 1800
 ```
 
 ## Notes
