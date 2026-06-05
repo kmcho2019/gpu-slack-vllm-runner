@@ -21,11 +21,9 @@ vllm = [
 
 [dependency-groups]
 dev = [
-  "mypy>=1.10.0",
   "pytest>=8.0.0",
   "ruff>=0.6.0",
-  "types-psutil>=7.2.2.20260518",
-  "types-pyyaml>=6.0.12.20260518",
+  "ty>=0.0.44",
 ]
 
 [project.scripts]
@@ -46,9 +44,3 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
 ignore = ["E501"]
-
-[tool.mypy]
-python_version = "3.11"
-strict = true
-warn_unused_ignores = true
-warn_redundant_casts = true

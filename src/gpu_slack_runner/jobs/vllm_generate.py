@@ -14,6 +14,7 @@ import os
 import signal
 import time
 from collections.abc import Iterator
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
@@ -62,12 +63,12 @@ def _cycle_batches(prompts: list[str], batch_size: int) -> Iterator[list[str]]:
 
 def _import_vllm() -> tuple[Any, Any]:
     try:
-        from vllm import LLM, SamplingParams  # type: ignore[import-not-found, unused-ignore]
+        vllm = import_module("vllm")
     except ImportError as exc:
         raise RuntimeError(
             "vLLM is not installed. Install with `uv sync --extra vllm` or `uv pip install vllm`."
         ) from exc
-    return LLM, SamplingParams
+    return vllm.LLM, vllm.SamplingParams
 
 
 def _write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:

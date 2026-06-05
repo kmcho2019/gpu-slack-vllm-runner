@@ -67,6 +67,28 @@ uv sync --extra vllm
 
 This can be heavy because vLLM brings its CUDA/PyTorch stack. Use a fresh environment on the GPU server.
 
+## Python Development
+
+Use the same `uv` environment for local code checks. The Python code toolchain is intentionally small:
+
+```bash
+uv sync
+uv run ruff check src tests
+uv run ty check
+uv run pytest
+```
+
+The Makefile wraps those commands:
+
+```bash
+make lint
+make type
+make test
+make quality
+```
+
+`ruff` handles linting and import formatting checks. `ty` is the project type checker. `pytest` runs the unit tests.
+
 ### 3. Smoke-test GPU detection
 
 ```bash
@@ -100,7 +122,7 @@ uv run --no-sync gpu-slack --config configs/default.yaml check
 uv run --no-sync gpu-slack --config configs/default.yaml stop
 ```
 
-## Install 30-minute systemd timer
+## Install 30-Minute Systemd Timer
 
 The default timer runs one check every 30 minutes.
 
@@ -129,7 +151,7 @@ loginctl enable-linger "$USER"
 
 Ask your administrator before enabling this on shared systems.
 
-## Optional daemon mode
+## Optional Daemon Mode
 
 The timer is usually enough for opportunistic token generation. For a visible persistent process during bring-up, run daemon mode in tmux with the same 30-minute cadence:
 
@@ -139,9 +161,10 @@ uv run --no-sync gpu-slack --config configs/default.yaml daemon --poll-interval-
 
 Use `tmux attach -t gpu-slack` to inspect it later, or install the user systemd timer once the dry-run output looks right.
 
-## Config guide
+## Config Guide
 
 Important fields in `configs/default.yaml`:
+
 The default Nemotron workload follows NVIDIA's offline-compatible recommendations: FlashInfer FP4 MoE environment flags, `trust_remote_code`, `max_model_len=262144`, `max_num_seqs=8`, `kv_cache_dtype=fp8`, `temperature=1.0`, and `top_p=1.0`. Server-only flags such as port, served model name, and tool-call parser are not used by this offline JSONL generator.
 
 
@@ -193,13 +216,13 @@ Placeholders available in `job.command` and `job.environment`:
 - `{state_dir}`: state directory
 - `{config_path}`: config path
 
-## Prompt inputs
+## Prompt Inputs
 
 `data/input/prompts.jsonl` is the default prompt source. Each line is a JSON object with a required `prompt` string. Extra fields such as `source`, `id`, and `categories` are allowed and ignored by the generator.
 
 The checked-in prompt file contains CUDA, Triton, FlashAttention, BLAS, and EDA GPU-kernel prompts, plus converted CVDP SystemVerilog RTL code-generation tasks.
 
-## Output format
+## Output Format
 
 Each vLLM filler job writes a JSONL file under `data/output/generations/`.
 
@@ -211,7 +234,7 @@ Example records:
 {"type":"job_end","job_id":"...","reason":"budget_or_limit","total_outputs":512}
 ```
 
-## Operational recommendations
+## Operational Recommendations
 
 1. Start with `check --dry-run` for several hours before allowing real jobs.
 2. Keep `require_no_foreign_compute_process: true` unless the server users explicitly agree to co-scheduling.
@@ -220,7 +243,7 @@ Example records:
 5. For shared systems, document that these are low-priority filler jobs and can be killed at any time.
 6. Use daemon mode in tmux during bring-up; use the systemd timer once the dry-run output is boring.
 
-## Common commands
+## Common Commands
 
 ```bash
 # Show status

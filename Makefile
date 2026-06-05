@@ -1,4 +1,4 @@
-.PHONY: sync sync-vllm status dry-run check stop lint test
+.PHONY: sync sync-vllm status dry-run check stop lint type test quality
 
 sync:
 	uv sync
@@ -21,5 +21,10 @@ stop:
 lint:
 	uv run ruff check src tests
 
+type:
+	uv run ty check
+
 test:
 	uv run pytest
+
+quality: lint type test
