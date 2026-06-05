@@ -18,6 +18,7 @@ job:
     VLLM_NO_USAGE_STATS: "1"
     TOKENIZERS_PARALLELISM: "false"
     HF_HOME: "{repo_root}/.cache/huggingface"
+    VLLM_PORT: "{distributed_port}"
   command:
     - uv
     - run
@@ -49,8 +50,6 @@ job:
     - fp8
     - --moe-backend
     - flashinfer_trtllm
-    - --master-port
-    - "{distributed_port}"
     - --trust-remote-code
     - --gpu-memory-utilization
     - "0.82"

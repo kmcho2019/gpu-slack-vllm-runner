@@ -165,9 +165,11 @@ Use `tmux attach -t gpu-slack` to inspect it later, or install the user systemd 
 
 Important fields in `configs/default.yaml`:
 
-The default Nemotron workload follows NVIDIA's offline-compatible recommendations: `trust_remote_code`, `max_model_len=262144`, `max_num_seqs=8`, `kv_cache_dtype=fp8`, `moe_backend=flashinfer_trtllm`, a per-GPU `master_port`, `temperature=1.0`, and `top_p=1.0`. Server-only flags such as port, served model name, and tool-call parser are not used by this offline JSONL generator.
+The default Nemotron workload follows NVIDIA's offline-compatible recommendations: `trust_remote_code`, `max_model_len=262144`, `max_num_seqs=8`, `kv_cache_dtype=fp8`, `moe_backend=flashinfer_trtllm`, per-GPU `VLLM_PORT`, `temperature=1.0`, and `top_p=1.0`. Server-only flags such as port, served model name, and tool-call parser are not used by this offline JSONL generator.
 
 The default batch size is 1 because offline `LLM.generate(...)` returns after a full batch completes. With a 128k max-token cap, smaller batches make finished generations reach JSONL sooner while still letting vLLM use up to 8 active sequences internally.
+
+Each managed job sets `VLLM_PORT` from `{distributed_port}` so concurrent single-GPU vLLM workers do not collide during Torch distributed initialization.
 
 ```yaml
 idle_policy:
@@ -206,8 +208,6 @@ job:
     - fp8
     - --moe-backend
     - flashinfer_trtllm
-    - --master-port
-    - "{distributed_port}"
     - --trust-remote-code
 ```
 
