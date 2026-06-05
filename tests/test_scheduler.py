@@ -34,5 +34,5 @@ def test_start_job_expands_gpu_specific_distributed_port(tmp_path) -> None:
     job6 = _start_job(config, [6], dry_run=True)
     job7 = _start_job(config, [7], dry_run=True)
 
-    assert job6.command == ["run", "--master-port", "45006"]
-    assert job7.command == ["run", "--master-port", "45007"]
+    assert job6.command == ["run", "--master-port", "52600"]
+    assert job7.command == ["run", "--master-port", "52700"]

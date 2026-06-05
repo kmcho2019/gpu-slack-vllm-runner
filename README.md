@@ -169,7 +169,7 @@ The default Nemotron workload follows NVIDIA's offline-compatible recommendation
 
 The default batch size is 1 because offline `LLM.generate(...)` returns after a full batch completes. With a 128k max-token cap, smaller batches make finished generations reach JSONL sooner while still letting vLLM use up to 8 active sequences internally.
 
-Each managed job sets `VLLM_PORT` from `{distributed_port}` so concurrent single-GPU vLLM workers do not collide during Torch distributed initialization.
+Each managed job sets `VLLM_PORT` from `{distributed_port}` so concurrent single-GPU vLLM workers do not collide during Torch distributed initialization. The generated ports are separated by GPU-specific 100-port ranges because one vLLM engine opens several nearby local ports.
 
 ```yaml
 idle_policy:

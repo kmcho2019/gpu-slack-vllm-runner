@@ -63,7 +63,7 @@ def _job_id() -> str:
 
 
 def _distributed_port(gpus: list[int]) -> str:
-    return str(45000 + gpus[0])
+    return str(52_000 + gpus[0] * 100)
 
 
 def _job_has_foreign_process(job: ManagedJob, statuses: list[GpuStatus], managed_pids: set[int]) -> bool:

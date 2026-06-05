@@ -143,6 +143,7 @@ def main(argv: list[str] | None = None) -> int:
         "max_num_seqs": args.max_num_seqs,
         "kv_cache_dtype": args.kv_cache_dtype,
         "moe_backend": args.moe_backend,
+        "vllm_port": os.environ.get("VLLM_PORT", ""),
         "time": time.time(),
     }
     _write_jsonl(output_path, [metadata])
