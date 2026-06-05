@@ -1,0 +1,45 @@
+# Example for larger models: launch one vLLM job per 2 idle GPUs.
+idle_policy:
+  gpu_utilization_below_pct: 10
+  min_free_memory_mib: 16000
+  require_no_foreign_compute_process: true
+  allow_low_utilization_with_foreign_process: false
+  exclude_gpus: []
+
+job:
+  name: vllm-synthetic-generation-tp2
+  gpus_per_job: 2
+  max_jobs: 4
+  cooldown_seconds_after_stop: 120
+  stop_timeout_seconds: 60
+  environment:
+    VLLM_NO_USAGE_STATS: "1"
+    TOKENIZERS_PARALLELISM: "false"
+  command:
+    - uv
+    - run
+    - --no-sync
+    - gpu-slack-vllm-generate
+    - --model
+    - meta-llama/Llama-3.1-8B-Instruct
+    - --prompts
+    - data/input/prompts.jsonl
+    - --output-dir
+    - "{output_dir}"
+    - --batch-size
+    - "32"
+    - --max-tokens
+    - "512"
+    - --time-budget-min
+    - "50"
+    - --tensor-parallel-size
+    - "{num_gpus}"
+    - --gpu-memory-utilization
+    - "0.85"
+
+runtime:
+  poll_interval_seconds: 300
+  repo_root: "."
+  state_dir: state
+  log_dir: logs
+  output_dir: data/output/generations

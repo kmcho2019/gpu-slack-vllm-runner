@@ -1,0 +1,8 @@
+{"prompt": "Create a synthetic instruction-answer pair about optimizing GPU utilization in a research lab."}
+{"prompt": "Generate a detailed Verilog debugging question and answer about a finite-state machine."}
+{"prompt": "Write a synthetic EDA/CAD training example about timing-aware optimization."}
+{"prompt": "Explain how FlashAttention avoids materializing the full attention matrix, in simple terms."}
+{"prompt": "Create a concise research ideation example involving vLLM, GPUs, and synthetic data generation."}
+{"prompt": "Draft a Python coding task where the solution monitors NVIDIA GPU utilization."}
+{"prompt": "Write a synthetic prompt for an LLM to summarize a semiconductor design automation paper."}
+{"prompt": "Create a question-answer pair about when to use tensor parallelism for inference."}

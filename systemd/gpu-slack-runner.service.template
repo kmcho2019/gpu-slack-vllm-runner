@@ -1,0 +1,12 @@
+[Unit]
+Description=GPU Slack vLLM Runner one-shot check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__REPO_PATH__
+ExecStart=/usr/bin/env uv run --no-sync gpu-slack --config __CONFIG_PATH__ check
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
