@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -79,7 +80,7 @@ def collect_gpu_status() -> list[GpuStatus]:
     """Return status for all NVIDIA GPUs visible to NVML."""
 
     try:
-        import pynvml  # type: ignore[import-not-found]
+        import pynvml  # type: ignore[import-untyped]
     except ImportError as exc:  # pragma: no cover - import check is environment dependent
         raise RuntimeError(
             "pynvml is unavailable. Install the project with `uv sync` or install nvidia-ml-py."
@@ -119,8 +120,6 @@ def collect_gpu_status() -> list[GpuStatus]:
                 )
             )
     finally:
-        try:
+        with suppress(Exception):
             pynvml.nvmlShutdown()
-        except Exception:  # pragma: no cover - best effort cleanup
-            pass
     return statuses

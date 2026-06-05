@@ -8,20 +8,20 @@ import time
 from pathlib import Path
 
 from gpu_slack_runner.config import load_config
-from gpu_slack_runner.scheduler import check_once, status_json, stop_all
+from gpu_slack_runner.scheduler import CheckResult, check_once, status_json, stop_all
 
 
 def _default_config() -> str:
     return "configs/default.yaml"
 
 
-def _print_check_summary(result: object) -> None:
+def _print_check_summary(result: CheckResult) -> None:
     # Kept deliberately simple so the CLI has no rich/textual dependency.
-    started = getattr(result, "started_jobs")
-    stopped = getattr(result, "stopped_jobs")
-    cleaned = getattr(result, "cleaned_jobs")
-    decisions = getattr(result, "decisions")
-    dry = getattr(result, "dry_run")
+    started = result.started_jobs
+    stopped = result.stopped_jobs
+    cleaned = result.cleaned_jobs
+    decisions = result.decisions
+    dry = result.dry_run
 
     print(f"dry_run={dry}")
     print(f"started={len(started)} stopped={len(stopped)} cleaned={len(cleaned)}")

@@ -24,6 +24,8 @@ dev = [
   "mypy>=1.10.0",
   "pytest>=8.0.0",
   "ruff>=0.6.0",
+  "types-psutil>=7.2.2.20260518",
+  "types-pyyaml>=6.0.12.20260518",
 ]
 
 [project.scripts]

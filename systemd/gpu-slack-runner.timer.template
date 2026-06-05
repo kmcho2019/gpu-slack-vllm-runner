@@ -1,9 +1,9 @@
 [Unit]
-Description=Run GPU Slack vLLM Runner every hour
+Description=Run GPU Slack vLLM Runner every 30 minutes
 
 [Timer]
 OnBootSec=5min
-OnUnitActiveSec=1h
+OnUnitActiveSec=30min
 AccuracySec=5min
 Persistent=true
 Unit=gpu-slack-runner.service

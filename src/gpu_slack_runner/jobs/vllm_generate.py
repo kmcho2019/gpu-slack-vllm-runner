@@ -12,7 +12,6 @@ import argparse
 import json
 import os
 import signal
-import sys
 import time
 from collections.abc import Iterator
 from pathlib import Path
@@ -31,34 +30,22 @@ def _install_signal_handlers() -> None:
     signal.signal(signal.SIGINT, _handle_stop)
 
 
-def _read_prompts(path: Path, fallback_count: int = 16) -> list[str]:
-    """Read prompts from JSONL/TXT; return generic prompts if the file is absent."""
+def _read_prompts(path: Path) -> list[str]:
+    """Read all prompts from a JSONL file with a required prompt field."""
 
-    if not path.exists():
-        return [
-            "Write a detailed synthetic training example about semiconductor design automation.",
-            "Generate a Verilog reasoning problem with a concise answer.",
-            "Create a synthetic instruction-following example for EDA tool scripting.",
-            "Explain a GPU scheduling scenario and produce a structured solution.",
-        ][:fallback_count]
-
+    assert path.exists(), f"Missing prompt file: {path}"
     prompts: list[str] = []
     with path.open("r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
-            if line.startswith("{"):
-                obj = json.loads(line)
-                value = obj.get("prompt") or obj.get("text") or obj.get("instruction")
-                if value:
-                    prompts.append(str(value))
-            else:
-                prompts.append(line)
-            if len(prompts) >= fallback_count:
-                break
-    if not prompts:
-        raise ValueError(f"No prompts found in {path}")
+            obj = json.loads(line)
+            prompt = obj["prompt"]
+            assert isinstance(prompt, str)
+            assert prompt
+            prompts.append(prompt)
+    assert prompts, f"No prompts found in {path}"
     return prompts
 
 
@@ -75,7 +62,7 @@ def _cycle_batches(prompts: list[str], batch_size: int) -> Iterator[list[str]]:
 
 def _import_vllm() -> tuple[Any, Any]:
     try:
-        from vllm import LLM, SamplingParams  # type: ignore[import-not-found]
+        from vllm import LLM, SamplingParams  # type: ignore[import-not-found, unused-ignore]
     except ImportError as exc:
         raise RuntimeError(
             "vLLM is not installed. Install with `uv sync --extra vllm` or `uv pip install vllm`."
@@ -96,7 +83,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(description="Run bounded vLLM synthetic generation as GPU filler.")
     parser.add_argument("--model", required=True, help="HF model name or local model path.")
-    parser.add_argument("--prompts", default="data/input/prompts.jsonl", help="Prompt JSONL/TXT path.")
+    parser.add_argument("--prompts", default="data/input/prompts.jsonl", help="Prompt JSONL path.")
     parser.add_argument("--output-dir", default="data/output/generations", help="Output directory.")
     parser.add_argument("--batch-size", type=int, default=16, help="Prompts per vLLM batch.")
     parser.add_argument("--max-tokens", type=int, default=256, help="Max generated tokens per prompt.")
@@ -135,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
         raise ValueError("--time-budget-min must be > 0")
 
     LLM, SamplingParams = _import_vllm()
-    prompts = _read_prompts(Path(args.prompts), fallback_count=max(args.batch_size, 16))
+    prompts = _read_prompts(Path(args.prompts))
 
     job_id = os.environ.get("GPU_SLACK_RUNNER_JOB_ID", f"manual-{int(time.time())}")
     visible_gpus = os.environ.get("CUDA_VISIBLE_DEVICES", "")

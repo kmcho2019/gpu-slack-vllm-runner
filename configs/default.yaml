@@ -24,7 +24,7 @@ job:
     - --no-sync
     - gpu-slack-vllm-generate
     - --model
-    - Qwen/Qwen2.5-1.5B-Instruct
+    - nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4
     - --prompts
     - data/input/prompts.jsonl
     - --output-dir
@@ -32,9 +32,9 @@ job:
     - --batch-size
     - "16"
     - --max-tokens
-    - "256"
+    - "1024"
     - --temperature
-    - "0.8"
+    - "0.7"
     - --top-p
     - "0.95"
     - --time-budget-min
@@ -45,8 +45,8 @@ job:
     - "0.82"
 
 runtime:
-  # Daemon mode uses this interval. The systemd timer template checks hourly.
-  poll_interval_seconds: 300
+  # Daemon mode uses this interval. The systemd timer template checks every 30 minutes.
+  poll_interval_seconds: 1800
   repo_root: "."
   state_dir: state
   log_dir: logs

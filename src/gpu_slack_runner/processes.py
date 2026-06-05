@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import signal
-import time
 from dataclasses import dataclass
 
 import psutil

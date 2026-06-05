@@ -8,7 +8,6 @@ import subprocess
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
 
 from gpu_slack_runner.config import AppConfig
 from gpu_slack_runner.gpu import GpuStatus, collect_gpu_status
@@ -18,7 +17,15 @@ from gpu_slack_runner.processes import (
     pid_owner,
     terminate_process_tree,
 )
-from gpu_slack_runner.state import ManagedJob, active_gpu_cooldowns, ensure_runtime_dirs, read_jobs, remove_job, set_gpu_cooldown, write_job
+from gpu_slack_runner.state import (
+    ManagedJob,
+    active_gpu_cooldowns,
+    ensure_runtime_dirs,
+    read_jobs,
+    remove_job,
+    set_gpu_cooldown,
+    write_job,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,8 +167,8 @@ def _decide_idle_gpus(
             decisions.append(
                 GpuDecision(
                     index=status.index,
-                    idle=True,
-                    reason="no foreign compute process",
+                    idle=False,
+                    reason=f"utilization {status.utilization_gpu_pct}% >= {policy.gpu_utilization_below_pct}%",
                     utilization_gpu_pct=status.utilization_gpu_pct,
                     memory_free_mib=status.memory_free_mib,
                     foreign_pids=foreign_here,
