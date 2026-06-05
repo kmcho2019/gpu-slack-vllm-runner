@@ -18,8 +18,6 @@ job:
     VLLM_NO_USAGE_STATS: "1"
     TOKENIZERS_PARALLELISM: "false"
     HF_HOME: "{repo_root}/.cache/huggingface"
-    VLLM_USE_FLASHINFER_MOE_FP4: "1"
-    VLLM_FLASHINFER_MOE_BACKEND: throughput
   command:
     - uv
     - run
@@ -32,7 +30,7 @@ job:
     - --output-dir
     - "{output_dir}"
     - --batch-size
-    - "16"
+    - "1"
     - --max-tokens
     - "131072"
     - --temperature
@@ -49,6 +47,8 @@ job:
     - "8"
     - --kv-cache-dtype
     - fp8
+    - --moe-backend
+    - flashinfer_trtllm
     - --trust-remote-code
     - --gpu-memory-utilization
     - "0.82"

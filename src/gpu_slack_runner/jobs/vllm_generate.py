@@ -96,6 +96,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-model-len", type=int, default=0, help="vLLM max model length; 0 uses model default.")
     parser.add_argument("--max-num-seqs", type=int, default=0, help="vLLM max concurrent sequences; 0 uses vLLM default.")
     parser.add_argument("--kv-cache-dtype", default="auto", help="vLLM KV cache dtype, e.g. auto or fp8.")
+    parser.add_argument("--moe-backend", default="auto", help="vLLM MoE backend, e.g. auto or flashinfer_trtllm.")
     parser.add_argument(
         "--gpu-memory-utilization",
         type=float,
@@ -125,41 +126,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.time_budget_min <= 0:
         raise ValueError("--time-budget-min must be > 0")
 
-    LLM, SamplingParams = _import_vllm()
-    prompts = _read_prompts(Path(args.prompts))
-
     job_id = os.environ.get("GPU_SLACK_RUNNER_JOB_ID", f"manual-{int(time.time())}")
     visible_gpus = os.environ.get("CUDA_VISIBLE_DEVICES", "")
     output_path = Path(args.output_dir) / f"{time.strftime('%Y%m%d-%H%M%S')}-{job_id}.jsonl"
-
-    llm_kwargs: dict[str, Any] = {}
-    if args.max_model_len:
-        llm_kwargs["max_model_len"] = args.max_model_len
-    if args.max_num_seqs:
-        llm_kwargs["max_num_seqs"] = args.max_num_seqs
-    if args.kv_cache_dtype != "auto":
-        llm_kwargs["kv_cache_dtype"] = args.kv_cache_dtype
-
-    llm = LLM(
-        model=args.model,
-        tensor_parallel_size=args.tensor_parallel_size,
-        gpu_memory_utilization=args.gpu_memory_utilization,
-        trust_remote_code=args.trust_remote_code,
-        dtype=args.dtype,
-        **llm_kwargs,
-    )
-    sampling_params = SamplingParams(
-        max_tokens=args.max_tokens,
-        temperature=args.temperature,
-        top_p=args.top_p,
-    )
-
-    start = time.time()
-    deadline = start + args.time_budget_min * 60.0
-    batch_iter = _cycle_batches(prompts, args.batch_size)
-    batch_idx = 0
-    total_outputs = 0
-
     metadata = {
         "type": "job_start",
         "job_id": job_id,
@@ -173,35 +142,77 @@ def main(argv: list[str] | None = None) -> int:
         "max_model_len": args.max_model_len,
         "max_num_seqs": args.max_num_seqs,
         "kv_cache_dtype": args.kv_cache_dtype,
+        "moe_backend": args.moe_backend,
         "time": time.time(),
     }
     _write_jsonl(output_path, [metadata])
 
-    while not _STOP_REQUESTED and time.time() < deadline:
-        if args.max_batches and batch_idx >= args.max_batches:
-            break
-        batch = next(batch_iter)
-        outputs = llm.generate(batch, sampling_params)
-        records: list[dict[str, Any]] = []
-        now = time.time()
-        for prompt, output in zip(batch, outputs, strict=False):
-            text = output.outputs[0].text if output.outputs else ""
-            records.append(
-                {
-                    "type": "generation",
-                    "job_id": job_id,
-                    "batch_idx": batch_idx,
-                    "model": args.model,
-                    "visible_gpus": visible_gpus,
-                    "prompt": prompt,
-                    "text": text,
-                    "finish_reason": output.outputs[0].finish_reason if output.outputs else None,
-                    "created_at": now,
-                }
-            )
-        _write_jsonl(output_path, records)
-        batch_idx += 1
-        total_outputs += len(records)
+    LLM, SamplingParams = _import_vllm()
+    prompts = _read_prompts(Path(args.prompts))
+
+    llm_kwargs: dict[str, Any] = {}
+    if args.max_model_len:
+        llm_kwargs["max_model_len"] = args.max_model_len
+    if args.max_num_seqs:
+        llm_kwargs["max_num_seqs"] = args.max_num_seqs
+    if args.kv_cache_dtype != "auto":
+        llm_kwargs["kv_cache_dtype"] = args.kv_cache_dtype
+    if args.moe_backend != "auto":
+        llm_kwargs["moe_backend"] = args.moe_backend
+
+    try:
+        llm = LLM(
+            model=args.model,
+            tensor_parallel_size=args.tensor_parallel_size,
+            gpu_memory_utilization=args.gpu_memory_utilization,
+            trust_remote_code=args.trust_remote_code,
+            dtype=args.dtype,
+            **llm_kwargs,
+        )
+        sampling_params = SamplingParams(
+            max_tokens=args.max_tokens,
+            temperature=args.temperature,
+            top_p=args.top_p,
+        )
+    except Exception as exc:
+        _write_jsonl(output_path, [{"type": "job_error", "job_id": job_id, "error": repr(exc), "time": time.time()}])
+        raise
+
+    start = time.time()
+    deadline = start + args.time_budget_min * 60.0
+    batch_iter = _cycle_batches(prompts, args.batch_size)
+    batch_idx = 0
+    total_outputs = 0
+
+    try:
+        while not _STOP_REQUESTED and time.time() < deadline:
+            if args.max_batches and batch_idx >= args.max_batches:
+                break
+            batch = next(batch_iter)
+            outputs = llm.generate(batch, sampling_params)
+            records: list[dict[str, Any]] = []
+            now = time.time()
+            for prompt, output in zip(batch, outputs, strict=False):
+                text = output.outputs[0].text if output.outputs else ""
+                records.append(
+                    {
+                        "type": "generation",
+                        "job_id": job_id,
+                        "batch_idx": batch_idx,
+                        "model": args.model,
+                        "visible_gpus": visible_gpus,
+                        "prompt": prompt,
+                        "text": text,
+                        "finish_reason": output.outputs[0].finish_reason if output.outputs else None,
+                        "created_at": now,
+                    }
+                )
+            _write_jsonl(output_path, records)
+            batch_idx += 1
+            total_outputs += len(records)
+    except Exception as exc:
+        _write_jsonl(output_path, [{"type": "job_error", "job_id": job_id, "error": repr(exc), "time": time.time()}])
+        raise
 
     _write_jsonl(
         output_path,

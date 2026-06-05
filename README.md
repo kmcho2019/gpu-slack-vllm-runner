@@ -165,8 +165,9 @@ Use `tmux attach -t gpu-slack` to inspect it later, or install the user systemd 
 
 Important fields in `configs/default.yaml`:
 
-The default Nemotron workload follows NVIDIA's offline-compatible recommendations: FlashInfer FP4 MoE environment flags, `trust_remote_code`, `max_model_len=262144`, `max_num_seqs=8`, `kv_cache_dtype=fp8`, `temperature=1.0`, and `top_p=1.0`. Server-only flags such as port, served model name, and tool-call parser are not used by this offline JSONL generator.
+The default Nemotron workload follows NVIDIA's offline-compatible recommendations: `trust_remote_code`, `max_model_len=262144`, `max_num_seqs=8`, `kv_cache_dtype=fp8`, `moe_backend=flashinfer_trtllm`, `temperature=1.0`, and `top_p=1.0`. Server-only flags such as port, served model name, and tool-call parser are not used by this offline JSONL generator.
 
+The default batch size is 1 because offline `LLM.generate(...)` returns after a full batch completes. With a 128k max-token cap, smaller batches make finished generations reach JSONL sooner while still letting vLLM use up to 8 active sequences internally.
 
 ```yaml
 idle_policy:
@@ -187,6 +188,8 @@ job:
     - nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4
     - --time-budget-min
     - "50"
+    - --batch-size
+    - "1"
     - --max-tokens
     - "131072"
     - --temperature
@@ -201,6 +204,8 @@ job:
     - "8"
     - --kv-cache-dtype
     - fp8
+    - --moe-backend
+    - flashinfer_trtllm
     - --trust-remote-code
 ```
 
@@ -224,13 +229,14 @@ The checked-in prompt file contains CUDA, Triton, FlashAttention, BLAS, and EDA 
 
 ## Output Format
 
-Each vLLM filler job writes a JSONL file under `data/output/generations/`.
+Each vLLM filler job writes a JSONL file under `data/output/generations/`. A `job_start` record is written before vLLM imports or model initialization, so startup failures still leave an audit record. If initialization or generation fails, the job writes a `job_error` record before exiting nonzero.
 
 Example records:
 
 ```jsonl
-{"type":"job_start","job_id":"...","model":"...","visible_gpus":"0","batch_size":16}
+{"type":"job_start","job_id":"...","model":"...","visible_gpus":"0","batch_size":1}
 {"type":"generation","job_id":"...","batch_idx":0,"prompt":"...","text":"..."}
+{"type":"job_error","job_id":"...","error":"RuntimeError('...')"}
 {"type":"job_end","job_id":"...","reason":"budget_or_limit","total_outputs":512}
 ```
 
