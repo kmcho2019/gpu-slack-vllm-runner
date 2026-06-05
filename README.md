@@ -142,6 +142,8 @@ Use `tmux attach -t gpu-slack` to inspect it later, or install the user systemd 
 ## Config guide
 
 Important fields in `configs/default.yaml`:
+The default Nemotron workload follows NVIDIA's offline-compatible recommendations: FlashInfer FP4 MoE environment flags, `trust_remote_code`, `max_model_len=262144`, `max_num_seqs=8`, `kv_cache_dtype=fp8`, `temperature=1.0`, and `top_p=1.0`. Server-only flags such as port, served model name, and tool-call parser are not used by this offline JSONL generator.
+
 
 ```yaml
 idle_policy:
@@ -162,8 +164,21 @@ job:
     - nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4
     - --time-budget-min
     - "50"
+    - --max-tokens
+    - "131072"
+    - --temperature
+    - "1.0"
+    - --top-p
+    - "1.0"
     - --tensor-parallel-size
     - "{num_gpus}"
+    - --max-model-len
+    - "262144"
+    - --max-num-seqs
+    - "8"
+    - --kv-cache-dtype
+    - fp8
+    - --trust-remote-code
 ```
 
 Placeholders available in `job.command` and `job.environment`:

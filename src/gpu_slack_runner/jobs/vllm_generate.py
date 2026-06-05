@@ -92,6 +92,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--time-budget-min", type=float, default=50.0, help="Exit after this many minutes.")
     parser.add_argument("--max-batches", type=int, default=0, help="Optional hard cap; 0 means no cap.")
     parser.add_argument("--tensor-parallel-size", type=int, default=1, help="vLLM tensor parallel size.")
+    parser.add_argument("--max-model-len", type=int, default=0, help="vLLM max model length; 0 uses model default.")
+    parser.add_argument("--max-num-seqs", type=int, default=0, help="vLLM max concurrent sequences; 0 uses vLLM default.")
+    parser.add_argument("--kv-cache-dtype", default="auto", help="vLLM KV cache dtype, e.g. auto or fp8.")
     parser.add_argument(
         "--gpu-memory-utilization",
         type=float,
@@ -128,12 +131,21 @@ def main(argv: list[str] | None = None) -> int:
     visible_gpus = os.environ.get("CUDA_VISIBLE_DEVICES", "")
     output_path = Path(args.output_dir) / f"{time.strftime('%Y%m%d-%H%M%S')}-{job_id}.jsonl"
 
+    llm_kwargs: dict[str, Any] = {}
+    if args.max_model_len:
+        llm_kwargs["max_model_len"] = args.max_model_len
+    if args.max_num_seqs:
+        llm_kwargs["max_num_seqs"] = args.max_num_seqs
+    if args.kv_cache_dtype != "auto":
+        llm_kwargs["kv_cache_dtype"] = args.kv_cache_dtype
+
     llm = LLM(
         model=args.model,
         tensor_parallel_size=args.tensor_parallel_size,
         gpu_memory_utilization=args.gpu_memory_utilization,
         trust_remote_code=args.trust_remote_code,
         dtype=args.dtype,
+        **llm_kwargs,
     )
     sampling_params = SamplingParams(
         max_tokens=args.max_tokens,
@@ -155,6 +167,11 @@ def main(argv: list[str] | None = None) -> int:
         "tensor_parallel_size": args.tensor_parallel_size,
         "batch_size": args.batch_size,
         "max_tokens": args.max_tokens,
+        "temperature": args.temperature,
+        "top_p": args.top_p,
+        "max_model_len": args.max_model_len,
+        "max_num_seqs": args.max_num_seqs,
+        "kv_cache_dtype": args.kv_cache_dtype,
         "time": time.time(),
     }
     _write_jsonl(output_path, [metadata])

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import signal
+import time
 from dataclasses import dataclass
 
 import psutil
@@ -71,20 +72,28 @@ def terminate_process_tree(pid: int, timeout_seconds: int) -> TerminationResult:
         except psutil.Error:
             continue
 
-    gone, alive = psutil.wait_procs(procs, timeout=timeout_seconds)
-    killed = False
-    if alive:
-        killed = True
-        for proc in reversed(alive):
-            try:
-                proc.kill()
-            except psutil.NoSuchProcess:
-                continue
-            except psutil.Error:
-                continue
-        psutil.wait_procs(alive, timeout=10)
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        if not any(is_pid_alive(proc.pid) for proc in procs):
+            break
+        time.sleep(0.2)
 
-    # Best effort: if the root is still around but no longer killable due to a race, report accurately.
+    alive = [proc for proc in procs if is_pid_alive(proc.pid)]
+    killed = bool(alive)
+    for proc in reversed(alive):
+        try:
+            proc.kill()
+        except psutil.NoSuchProcess:
+            continue
+        except psutil.Error:
+            continue
+
+    kill_deadline = time.time() + 10
+    while time.time() < kill_deadline:
+        if not any(is_pid_alive(proc.pid) for proc in alive):
+            break
+        time.sleep(0.2)
+
     still_alive = is_pid_alive(pid)
     if not still_alive:
         return TerminationResult(

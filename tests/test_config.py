@@ -10,3 +10,9 @@ def test_load_default_config() -> None:
     assert config.runtime.poll_interval_seconds == 1800
     assert "gpu-slack-vllm-generate" in config.job.command
     assert "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4" in config.job.command
+    assert "131072" in config.job.command
+    assert "1.0" in config.job.command
+    assert "262144" in config.job.command
+    assert "fp8" in config.job.command
+    assert config.job.environment["VLLM_USE_FLASHINFER_MOE_FP4"] == "1"
+    assert config.job.environment["VLLM_FLASHINFER_MOE_BACKEND"] == "throughput"
