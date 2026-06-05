@@ -8,6 +8,9 @@ def test_load_default_config() -> None:
     assert config.idle_policy.gpu_utilization_below_pct == 10
     assert config.job.gpus_per_job == 1
     assert config.runtime.poll_interval_seconds == 1800
+    assert config.archive.enabled
+    assert config.archive.min_age_hours == 24
+    assert config.archive.interval_seconds == 86400
     assert "gpu-slack-vllm-generate" in config.job.command
     assert "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4" in config.job.command
     assert "131072" in config.job.command

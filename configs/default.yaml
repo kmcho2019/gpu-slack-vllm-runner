@@ -61,3 +61,10 @@ runtime:
   state_dir: state
   log_dir: logs
   output_dir: data/output/generations
+
+archive:
+  # Compress old completed output/log files once per day from daemon mode.
+  enabled: true
+  min_age_hours: 24
+  interval_seconds: 86400
+  archive_dir: data/archive

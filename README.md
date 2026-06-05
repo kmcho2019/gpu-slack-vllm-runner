@@ -243,6 +243,33 @@ Example records:
 {"type":"job_end","job_id":"...","reason":"budget_or_limit","total_outputs":512}
 ```
 
+
+## Archive Management
+
+The runner can compress old generated JSONL and job logs so long-running filler jobs do not grow the working directories indefinitely. The default policy archives files older than 24 hours into `data/archive/` and leaves active job files untouched.
+
+```yaml
+archive:
+  enabled: true
+  min_age_hours: 24
+  interval_seconds: 86400
+  archive_dir: data/archive
+```
+
+Run a manual dry-run before enabling or after changing policy:
+
+```bash
+uv run --no-sync gpu-slack --config configs/default.yaml archive --dry-run
+```
+
+Run a real archive pass:
+
+```bash
+uv run --no-sync gpu-slack --config configs/default.yaml archive
+```
+
+Daemon mode also runs the archive pass every `archive.interval_seconds`. Each archived file is compressed with gzip and a `data/archive/manifest.jsonl` entry records the source path, archive path, size, sha256, and either JSONL record counts or log line count.
+
 ## Operational Recommendations
 
 1. Start with `check --dry-run` for several hours before allowing real jobs.
@@ -266,6 +293,10 @@ uv run --no-sync gpu-slack --config configs/default.yaml check
 
 # Stop all managed filler jobs
 uv run --no-sync gpu-slack --config configs/default.yaml stop
+
+# Archive old JSONL/log files
+uv run --no-sync gpu-slack --config configs/default.yaml archive --dry-run
+uv run --no-sync gpu-slack --config configs/default.yaml archive
 
 # Run more frequent checks
 uv run --no-sync gpu-slack --config configs/default.yaml daemon --poll-interval-seconds 1800

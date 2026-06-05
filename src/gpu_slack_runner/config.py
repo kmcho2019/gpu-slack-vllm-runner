@@ -34,6 +34,16 @@ class JobConfig:
 
 
 @dataclass(slots=True)
+class ArchiveConfig:
+    """Age-based archive policy for generated data and logs."""
+
+    enabled: bool = True
+    min_age_hours: int = 24
+    interval_seconds: int = 86_400
+    archive_dir: Path = Path("data/archive")
+
+
+@dataclass(slots=True)
 class RuntimeConfig:
     """Runtime paths and loop cadence."""
 
@@ -51,6 +61,7 @@ class AppConfig:
     idle_policy: IdlePolicy = field(default_factory=IdlePolicy)
     job: JobConfig = field(default_factory=JobConfig)
     runtime: RuntimeConfig = field(default_factory=RuntimeConfig)
+    archive: ArchiveConfig = field(default_factory=ArchiveConfig)
     config_path: Path | None = None
 
 
@@ -81,6 +92,7 @@ def load_config(path: str | Path) -> AppConfig:
     idle_raw = _as_dict(raw.get("idle_policy"))
     job_raw = _as_dict(raw.get("job"))
     runtime_raw = _as_dict(raw.get("runtime"))
+    archive_raw = _as_dict(raw.get("archive"))
 
     idle = IdlePolicy(
         gpu_utilization_below_pct=int(idle_raw.get("gpu_utilization_below_pct", 10)),
@@ -119,6 +131,12 @@ def load_config(path: str | Path) -> AppConfig:
         output_dir=_path(runtime_raw.get("output_dir"), "data/output/generations", base),
         repo_root=_path(runtime_raw.get("repo_root"), ".", base),
     )
+    archive = ArchiveConfig(
+        enabled=bool(archive_raw.get("enabled", True)),
+        min_age_hours=int(archive_raw.get("min_age_hours", 24)),
+        interval_seconds=int(archive_raw.get("interval_seconds", 86_400)),
+        archive_dir=_path(archive_raw.get("archive_dir"), "data/archive", base),
+    )
 
     if job.gpus_per_job < 1:
         raise ValueError("job.gpus_per_job must be >= 1")
@@ -126,5 +144,9 @@ def load_config(path: str | Path) -> AppConfig:
         raise ValueError("job.max_jobs must be >= 1")
     if idle.gpu_utilization_below_pct < 0 or idle.gpu_utilization_below_pct > 100:
         raise ValueError("idle_policy.gpu_utilization_below_pct must be between 0 and 100")
+    if archive.min_age_hours < 1:
+        raise ValueError("archive.min_age_hours must be >= 1")
+    if archive.interval_seconds < 3600:
+        raise ValueError("archive.interval_seconds must be >= 3600")
 
-    return AppConfig(idle_policy=idle, job=job, runtime=runtime, config_path=config_path)
+    return AppConfig(idle_policy=idle, job=job, runtime=runtime, archive=archive, config_path=config_path)

@@ -7,12 +7,27 @@ import sys
 import time
 from pathlib import Path
 
+from gpu_slack_runner.archive import ArchiveResult, archive_once
 from gpu_slack_runner.config import load_config
 from gpu_slack_runner.scheduler import CheckResult, check_once, status_json, stop_all
 
 
 def _default_config() -> str:
     return "configs/default.yaml"
+
+
+def _print_archive_summary(result: ArchiveResult) -> None:
+    """Print the result of one archival pass."""
+
+    print(f"dry_run={result.dry_run}")
+    print(
+        f"archived={len(result.archived)} "
+        f"skipped_active={len(result.skipped_active)} skipped_young={result.skipped_young}"
+    )
+    for path in result.archived:
+        print(f"ARCHIVE {path}")
+    for path in result.skipped_active:
+        print(f"SKIP_ACTIVE {path}")
 
 
 def _print_check_summary(result: CheckResult) -> None:
@@ -72,6 +87,9 @@ def build_parser() -> argparse.ArgumentParser:
     stop = sub.add_parser("stop", help="Stop all managed filler jobs.")
     stop.add_argument("--dry-run", action="store_true", help="Only print which jobs would be stopped.")
 
+    archive = sub.add_parser("archive", help="Compress old generation JSONL and log files.")
+    archive.add_argument("--dry-run", action="store_true", help="Only print which files would be archived.")
+
     return parser
 
 
@@ -96,15 +114,25 @@ def main(argv: list[str] | None = None) -> int:
         if interval < 60:
             print("Refusing poll interval < 60 seconds; use >=60 to avoid scheduler noise.", file=sys.stderr)
             return 2
+        last_archive = 0.0
         while True:
             try:
                 result = check_once(config, dry_run=args.dry_run)
                 _print_check_summary(result)
+                if config.archive.enabled and time.time() - last_archive >= config.archive.interval_seconds:
+                    archive_result = archive_once(config, dry_run=args.dry_run)
+                    _print_archive_summary(archive_result)
+                    last_archive = time.time()
             except Exception as exc:  # pragma: no cover - daemon resilience
                 print(f"ERROR: {exc}", file=sys.stderr)
             sys.stdout.flush()
             sys.stderr.flush()
             time.sleep(interval)
+
+    if args.command == "archive":
+        result = archive_once(config, dry_run=args.dry_run)
+        _print_archive_summary(result)
+        return 0
 
     if args.command == "stop":
         stopped = stop_all(config, dry_run=args.dry_run)
