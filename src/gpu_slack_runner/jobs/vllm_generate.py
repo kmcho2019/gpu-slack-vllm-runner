@@ -97,6 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-num-seqs", type=int, default=0, help="vLLM max concurrent sequences; 0 uses vLLM default.")
     parser.add_argument("--kv-cache-dtype", default="auto", help="vLLM KV cache dtype, e.g. auto or fp8.")
     parser.add_argument("--moe-backend", default="auto", help="vLLM MoE backend, e.g. auto or flashinfer_trtllm.")
+    parser.add_argument("--master-port", type=int, default=0, help="vLLM distributed master port; 0 uses vLLM default.")
     parser.add_argument(
         "--gpu-memory-utilization",
         type=float,
@@ -143,6 +144,7 @@ def main(argv: list[str] | None = None) -> int:
         "max_num_seqs": args.max_num_seqs,
         "kv_cache_dtype": args.kv_cache_dtype,
         "moe_backend": args.moe_backend,
+        "master_port": args.master_port,
         "time": time.time(),
     }
     _write_jsonl(output_path, [metadata])
@@ -159,6 +161,8 @@ def main(argv: list[str] | None = None) -> int:
         llm_kwargs["kv_cache_dtype"] = args.kv_cache_dtype
     if args.moe_backend != "auto":
         llm_kwargs["moe_backend"] = args.moe_backend
+    if args.master_port:
+        llm_kwargs["master_port"] = args.master_port
 
     try:
         llm = LLM(

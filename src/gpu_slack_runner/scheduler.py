@@ -62,6 +62,10 @@ def _job_id() -> str:
     return f"{int(time.time())}-{uuid.uuid4().hex[:8]}"
 
 
+def _distributed_port(gpus: list[int]) -> str:
+    return str(45000 + gpus[0])
+
+
 def _job_has_foreign_process(job: ManagedJob, statuses: list[GpuStatus], managed_pids: set[int]) -> bool:
     gpu_status = {s.index: s for s in statuses}
     for gpu_idx in job.gpus:
@@ -236,6 +240,7 @@ def _start_job(config: AppConfig, gpus: list[int], dry_run: bool = False) -> Man
         "gpu0": str(gpus[0]),
         "gpus": gpu_csv,
         "num_gpus": str(len(gpus)),
+        "distributed_port": _distributed_port(gpus),
         "timestamp": now,
         "repo_root": str(runtime.repo_root),
         "state_dir": str(runtime.state_dir),

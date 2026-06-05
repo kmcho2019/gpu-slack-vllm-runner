@@ -1,6 +1,6 @@
 from gpu_slack_runner.config import AppConfig
 from gpu_slack_runner.gpu import GpuStatus
-from gpu_slack_runner.scheduler import _decide_idle_gpus
+from gpu_slack_runner.scheduler import _decide_idle_gpus, _start_job
 
 
 def test_busy_gpu_without_process_is_not_idle(tmp_path) -> None:
@@ -21,3 +21,18 @@ def test_busy_gpu_without_process_is_not_idle(tmp_path) -> None:
 
     assert not decision.idle
     assert decision.reason == "utilization 50% >= 10%"
+
+
+def test_start_job_uses_gpu_specific_distributed_port(tmp_path) -> None:
+    config = AppConfig()
+    config.runtime.repo_root = tmp_path
+    config.runtime.state_dir = tmp_path / "state"
+    config.runtime.log_dir = tmp_path / "logs"
+    config.runtime.output_dir = tmp_path / "out"
+    config.job.command = ["run", "--master-port", "{distributed_port}"]
+
+    job6 = _start_job(config, [6], dry_run=True)
+    job7 = _start_job(config, [7], dry_run=True)
+
+    assert job6.command == ["run", "--master-port", "45006"]
+    assert job7.command == ["run", "--master-port", "45007"]

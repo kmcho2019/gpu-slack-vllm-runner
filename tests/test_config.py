@@ -15,6 +15,7 @@ def test_load_default_config() -> None:
     assert "262144" in config.job.command
     assert "fp8" in config.job.command
     assert "flashinfer_trtllm" in config.job.command
+    assert "{distributed_port}" in config.job.command
     assert "--batch-size" in config.job.command
     assert "1" in config.job.command
     assert "VLLM_USE_FLASHINFER_MOE_FP4" not in config.job.environment
