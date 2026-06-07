@@ -278,6 +278,7 @@ Daemon mode also runs the archive pass every `archive.interval_seconds`. Each ar
 4. Use bounded jobs, for example 50 minutes, so repeated checks never accumulate stale jobs.
 5. For shared systems, document that these are low-priority filler jobs and can be killed at any time.
 6. Use daemon mode in tmux during bring-up; use the systemd timer once the dry-run output is boring.
+7. Keep `job.stale_no_compute_seconds` above normal model startup time; it reclaims wrappers that stay alive after their GPU compute process disappears.
 
 ## Common Commands
 

@@ -66,13 +66,26 @@ def _distributed_port(gpus: list[int]) -> str:
     return str(52_000 + gpus[0] * 100)
 
 
-def _job_has_foreign_process(job: ManagedJob, statuses: list[GpuStatus], managed_pids: set[int]) -> bool:
+def _job_has_foreign_process(
+    job: ManagedJob, statuses: list[GpuStatus], managed_pids: set[int]
+) -> bool:
     gpu_status = {s.index: s for s in statuses}
     for gpu_idx in job.gpus:
         status = gpu_status.get(gpu_idx)
         if status is None:
             continue
         if any(pid not in managed_pids for pid in status.compute_pids):
+            return True
+    return False
+
+
+def _job_has_managed_compute(
+    job: ManagedJob, statuses: list[GpuStatus], managed_pids: set[int]
+) -> bool:
+    gpu_status = {s.index: s for s in statuses}
+    for gpu_idx in job.gpus:
+        status = gpu_status[gpu_idx]
+        if any(pid in managed_pids for pid in status.compute_pids):
             return True
     return False
 
@@ -313,15 +326,30 @@ def check_once(config: AppConfig, dry_run: bool = False) -> CheckResult:
 
     managed_pids = managed_pid_set(live_jobs)
 
+    fresh_jobs: list[ManagedJob] = []
+    for job in live_jobs:
+        stale = job.age_seconds > config.job.stale_no_compute_seconds
+        if stale and not _job_has_managed_compute(job, statuses, managed_pids):
+            cleaned.append(job.job_id)
+            if not dry_run:
+                terminate_process_tree(job.pid, config.job.stop_timeout_seconds)
+                remove_job(config.runtime.state_dir, job.job_id)
+        else:
+            fresh_jobs.append(job)
+
+    managed_pids = managed_pid_set(fresh_jobs)
+
     # Polite preemption: if a real user process appears on a GPU occupied by filler, stop filler.
     still_live_jobs: list[ManagedJob] = []
-    for job in live_jobs:
+    for job in fresh_jobs:
         if _job_has_foreign_process(job, statuses, managed_pids):
             stopped.append(job.job_id)
             if not dry_run:
                 terminate_process_tree(job.pid, config.job.stop_timeout_seconds)
                 for gpu_idx in job.gpus:
-                    set_gpu_cooldown(config.runtime.state_dir, gpu_idx, config.job.cooldown_seconds_after_stop)
+                    set_gpu_cooldown(
+                        config.runtime.state_dir, gpu_idx, config.job.cooldown_seconds_after_stop
+                    )
                 remove_job(config.runtime.state_dir, job.job_id)
         else:
             still_live_jobs.append(job)
@@ -339,7 +367,9 @@ def check_once(config: AppConfig, dry_run: bool = False) -> CheckResult:
     for group in gpu_groups[:start_budget]:
         started.append(_start_job(config, group, dry_run=dry_run))
 
-    active_after = read_jobs(config.runtime.state_dir) if not dry_run else [*jobs_after_stop, *started]
+    active_after = (
+        read_jobs(config.runtime.state_dir) if not dry_run else [*jobs_after_stop, *started]
+    )
     return CheckResult(
         decisions=decisions,
         active_jobs_before=jobs_before,
@@ -360,7 +390,9 @@ def stop_all(config: AppConfig, dry_run: bool = False) -> list[str]:
         if not dry_run:
             terminate_process_tree(job.pid, config.job.stop_timeout_seconds)
             for gpu_idx in job.gpus:
-                set_gpu_cooldown(config.runtime.state_dir, gpu_idx, config.job.cooldown_seconds_after_stop)
+                set_gpu_cooldown(
+                    config.runtime.state_dir, gpu_idx, config.job.cooldown_seconds_after_stop
+                )
             remove_job(config.runtime.state_dir, job.job_id)
     return stopped
 

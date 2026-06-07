@@ -30,6 +30,7 @@ class JobConfig:
     max_jobs: int = 8
     cooldown_seconds_after_stop: int = 120
     stop_timeout_seconds: int = 45
+    stale_no_compute_seconds: int = 1800
     environment: dict[str, str] = field(default_factory=dict)
 
 
@@ -111,7 +112,9 @@ def load_config(path: str | Path) -> AppConfig:
         raise TypeError("job.command must be a list of strings")
 
     env = job_raw.get("environment") or {}
-    if not isinstance(env, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in env.items()):
+    if not isinstance(env, dict) or not all(
+        isinstance(k, str) and isinstance(v, str) for k, v in env.items()
+    ):
         raise TypeError("job.environment must be a mapping of string keys to string values")
 
     job = JobConfig(
@@ -121,6 +124,7 @@ def load_config(path: str | Path) -> AppConfig:
         max_jobs=int(job_raw.get("max_jobs", 8)),
         cooldown_seconds_after_stop=int(job_raw.get("cooldown_seconds_after_stop", 120)),
         stop_timeout_seconds=int(job_raw.get("stop_timeout_seconds", 45)),
+        stale_no_compute_seconds=int(job_raw.get("stale_no_compute_seconds", 1800)),
         environment=env,
     )
 
@@ -142,6 +146,8 @@ def load_config(path: str | Path) -> AppConfig:
         raise ValueError("job.gpus_per_job must be >= 1")
     if job.max_jobs < 1:
         raise ValueError("job.max_jobs must be >= 1")
+    if job.stale_no_compute_seconds < 60:
+        raise ValueError("job.stale_no_compute_seconds must be >= 60")
     if idle.gpu_utilization_below_pct < 0 or idle.gpu_utilization_below_pct > 100:
         raise ValueError("idle_policy.gpu_utilization_below_pct must be between 0 and 100")
     if archive.min_age_hours < 1:
@@ -149,4 +155,6 @@ def load_config(path: str | Path) -> AppConfig:
     if archive.interval_seconds < 3600:
         raise ValueError("archive.interval_seconds must be >= 3600")
 
-    return AppConfig(idle_policy=idle, job=job, runtime=runtime, archive=archive, config_path=config_path)
+    return AppConfig(
+        idle_policy=idle, job=job, runtime=runtime, archive=archive, config_path=config_path
+    )
