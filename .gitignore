@@ -16,4 +16,6 @@ data/output/*
 !data/output/generations/
 data/output/generations/*
 !data/output/generations/.gitkeep
+data/archive/*
+!data/archive/.gitkeep
 .cache/
