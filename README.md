@@ -268,7 +268,17 @@ Run a real archive pass:
 uv run --no-sync gpu-slack --config configs/default.yaml archive
 ```
 
-Daemon mode also runs the archive pass every `archive.interval_seconds`. Each archived file is compressed with gzip and a `data/archive/manifest.jsonl` entry records the source path, archive path, size, sha256, and either JSONL record counts or log line count.
+Daemon mode also runs the archive pass every `archive.interval_seconds`. Each archived file is compressed with gzip and a `manifest.jsonl` entry under the archive directory records the source path, archive path, size, sha256, and either JSONL record counts or log line count.
+
+If local generated data starts to consume too much space, use the NHNHOME archive config. It keeps active output in this repo for simple reads, but moves completed old JSONL/log files to the larger Lustre workspace:
+
+```bash
+uv run --no-sync gpu-slack --config configs/nhnhome-archive.yaml archive --dry-run
+uv run --no-sync gpu-slack --config configs/nhnhome-archive.yaml archive
+uv run --no-sync gpu-slack --config configs/nhnhome-archive.yaml daemon --poll-interval-seconds 1800
+```
+
+That config writes compressed archives to `/NHNHOME/WORKSPACE/0226010160_A/KMC/gpu-slack-vllm-runner/archive`.
 
 ## Operational Recommendations
 

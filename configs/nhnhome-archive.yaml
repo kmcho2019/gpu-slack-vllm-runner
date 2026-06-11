@@ -1,0 +1,72 @@
+# Same runner policy as default.yaml, but archive output is stored on NHNHOME.
+idle_policy:
+  gpu_utilization_below_pct: 10
+  min_free_memory_mib: 8000
+  require_no_foreign_compute_process: true
+  allow_low_utilization_with_foreign_process: false
+  exclude_gpus: []
+
+job:
+  name: vllm-synthetic-generation
+  # One single-GPU vLLM job per idle GPU by default.
+  # For larger models, set gpus_per_job: 2/4/8 and tensor_parallel_size uses {num_gpus}.
+  gpus_per_job: 1
+  max_jobs: 8
+  cooldown_seconds_after_stop: 120
+  stop_timeout_seconds: 45
+  # Reclaim wrappers that outlive their GPU compute process after startup grace.
+  stale_no_compute_seconds: 1800
+  environment:
+    VLLM_NO_USAGE_STATS: "1"
+    TOKENIZERS_PARALLELISM: "false"
+    HF_HOME: "{repo_root}/.cache/huggingface"
+    VLLM_PORT: "{distributed_port}"
+  command:
+    - uv
+    - run
+    - --no-sync
+    - gpu-slack-vllm-generate
+    - --model
+    - nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4
+    - --prompts
+    - data/input/prompts.jsonl
+    - --output-dir
+    - "{output_dir}"
+    - --batch-size
+    - "1"
+    - --max-tokens
+    - "131072"
+    - --temperature
+    - "1.0"
+    - --top-p
+    - "1.0"
+    - --time-budget-min
+    - "50"
+    - --tensor-parallel-size
+    - "{num_gpus}"
+    - --max-model-len
+    - "262144"
+    - --max-num-seqs
+    - "8"
+    - --kv-cache-dtype
+    - fp8
+    - --moe-backend
+    - flashinfer_trtllm
+    - --trust-remote-code
+    - --gpu-memory-utilization
+    - "0.82"
+
+runtime:
+  # Daemon mode uses this interval. The systemd timer template checks every 30 minutes.
+  poll_interval_seconds: 1800
+  repo_root: "."
+  state_dir: state
+  log_dir: logs
+  output_dir: data/output/generations
+
+archive:
+  # Compress old completed output/log files once per day to the larger NHNHOME filesystem.
+  enabled: true
+  min_age_hours: 24
+  interval_seconds: 86400
+  archive_dir: /NHNHOME/WORKSPACE/0226010160_A/KMC/gpu-slack-vllm-runner/archive
