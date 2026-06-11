@@ -36,14 +36,21 @@ def _sha256(path: Path) -> str:
 
 def _jsonl_counts(path: Path) -> dict[str, int]:
     counts = {name: 0 for name in sorted(JSONL_TYPES)}
+    invalid = 0
     with path.open("r", encoding="utf-8") as f:
         for line in f:
             if not line.strip():
                 continue
-            record = json.loads(line)
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                invalid += 1
+                continue
             kind = record["type"]
             assert kind in JSONL_TYPES, f"Unknown JSONL record type: {kind}"
             counts[kind] += 1
+    if invalid:
+        counts["invalid_jsonl"] = invalid
     return {key: value for key, value in counts.items() if value}
 
 

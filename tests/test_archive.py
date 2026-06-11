@@ -13,12 +13,16 @@ def test_archive_once_compresses_old_outputs(tmp_path) -> None:
     config.runtime.state_dir = tmp_path / "state"
     config.runtime.log_dir = tmp_path / "logs"
     config.runtime.output_dir = tmp_path / "out"
-    config.archive = ArchiveConfig(min_age_hours=1, interval_seconds=3600, archive_dir=tmp_path / "archive")
+    config.archive = ArchiveConfig(
+        min_age_hours=1, interval_seconds=3600, archive_dir=tmp_path / "archive"
+    )
     config.runtime.log_dir.mkdir()
     config.runtime.output_dir.mkdir()
 
     generation = config.runtime.output_dir / "old.jsonl"
-    generation.write_text(json.dumps({"type": "job_start"}) + "\n" + json.dumps({"type": "generation"}) + "\n")
+    generation.write_text(
+        json.dumps({"type": "job_start"}) + "\n" + json.dumps({"type": "generation"}) + "\n"
+    )
     log = config.runtime.log_dir / "old.log"
     log.write_text("first\nsecond\n")
     for path in [generation, log]:
@@ -30,7 +34,9 @@ def test_archive_once_compresses_old_outputs(tmp_path) -> None:
     assert len(result.archived) == 2
     assert not generation.exists()
     assert not log.exists()
-    archived_generation = config.archive.archive_dir / "generations" / time.strftime("%Y-%m-%d") / "old.jsonl.gz"
+    archived_generation = (
+        config.archive.archive_dir / "generations" / time.strftime("%Y-%m-%d") / "old.jsonl.gz"
+    )
     archived_log = config.archive.archive_dir / "logs" / time.strftime("%Y-%m-%d") / "old.log.gz"
     assert archived_generation.exists()
     assert archived_log.exists()
@@ -45,7 +51,9 @@ def test_archive_once_skips_active_files(tmp_path) -> None:
     config.runtime.state_dir = tmp_path / "state"
     config.runtime.log_dir = tmp_path / "logs"
     config.runtime.output_dir = tmp_path / "out"
-    config.archive = ArchiveConfig(min_age_hours=1, interval_seconds=3600, archive_dir=tmp_path / "archive")
+    config.archive = ArchiveConfig(
+        min_age_hours=1, interval_seconds=3600, archive_dir=tmp_path / "archive"
+    )
     config.runtime.log_dir.mkdir()
     config.runtime.output_dir.mkdir()
 
@@ -53,7 +61,9 @@ def test_archive_once_skips_active_files(tmp_path) -> None:
     stdout = config.runtime.log_dir / "active-stdout.log"
     stderr = config.runtime.log_dir / "active-stderr.log"
     for path in [output, stdout, stderr]:
-        path.write_text(json.dumps({"type": "job_start"}) + "\n" if path.suffix == ".jsonl" else "log\n")
+        path.write_text(
+            json.dumps({"type": "job_start"}) + "\n" if path.suffix == ".jsonl" else "log\n"
+        )
         old = time.time() - 7200
         os.utime(path, (old, old))
 
@@ -77,3 +87,28 @@ def test_archive_once_skips_active_files(tmp_path) -> None:
     assert output.exists()
     assert stdout.exists()
     assert stderr.exists()
+
+
+def test_archive_once_records_invalid_jsonl_lines(tmp_path) -> None:
+    config = AppConfig()
+    config.runtime.state_dir = tmp_path / "state"
+    config.runtime.log_dir = tmp_path / "logs"
+    config.runtime.output_dir = tmp_path / "out"
+    config.archive = ArchiveConfig(
+        min_age_hours=1, interval_seconds=3600, archive_dir=tmp_path / "archive"
+    )
+    config.runtime.log_dir.mkdir()
+    config.runtime.output_dir.mkdir()
+
+    generation = config.runtime.output_dir / "partial.jsonl"
+    generation.write_text(
+        json.dumps({"type": "job_start"}) + "\n" + '{"type": "generation", "text": "unfinished'
+    )
+    old = time.time() - 7200
+    os.utime(generation, (old, old))
+
+    result = archive_once(config)
+
+    assert len(result.archived) == 1
+    manifest = json.loads((config.archive.archive_dir / "manifest.jsonl").read_text())
+    assert manifest["record_counts"] == {"invalid_jsonl": 1, "job_start": 1}
